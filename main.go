@@ -21,6 +21,8 @@ import (
 	"time"
 )
 
+var version = "1.0"
+
 var (
 	servicePtr    *string
 	startPortPtr  *int
