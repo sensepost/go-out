@@ -19,6 +19,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"sync/atomic"
+	"crypto/tls"
+	"text/template"
+	"os"
+
+	"github.com/reconquest/barely"
 )
 
 var version = "1.0"
@@ -30,6 +36,7 @@ var (
 	concurrentPtr *int
 	useHTTPSPtr   *bool
 	throttlePtr   *bool
+	dontVerifyCertPrt *bool
 )
 
 type service struct {
@@ -103,11 +110,15 @@ func (service *service) testHTTPEgress(port int) {
 		panic(err)
 	}
 
+	tr := &http.Transport{
+        TLSClientConfig: &tls.Config{InsecureSkipVerify: *dontVerifyCertPrt},
+    }
+
 	timeout := time.Duration(5 * time.Second)
 	client := http.Client{
 		Timeout: timeout,
+		Transport: tr,
 	}
-
 	resp, err := client.Get(url.String())
 	if err != nil {
 		// fmt.Printf("No connection on port %d\n", port)
@@ -119,7 +130,6 @@ func (service *service) testHTTPEgress(port int) {
 	if err != nil {
 		panic(err)
 	}
-
 	if strings.Contains(string(body), service.match) {
 		fmt.Printf("[!] Egress on port %d\n", port)
 	}
@@ -136,6 +146,11 @@ func validateFlags() bool {
 	if *useHTTPSPtr && *servicePtr != "letmeout" {
 		fmt.Println("Only the 'letmeout' service supports HTTPS, disabling HTTPS checking.")
 		*useHTTPSPtr = false
+	}
+
+	if !*useHTTPSPtr && *dontVerifyCertPrt{
+		fmt.Println("HTTPs is disabled, will not verify certificates.")
+		*dontVerifyCertPrt = false
 	}
 
 	if !validPort(*startPortPtr) || !validPort(*endPortPtr) {
@@ -158,7 +173,10 @@ func main() {
 	endPortPtr = flag.Int("end", 65535, "The end port to use.")
 	concurrentPtr = flag.Int("w", 5, "Number of concurrent workers to spawn.")
 	useHTTPSPtr = flag.Bool("https", true, "Egress bust using HTTPs (letmeout only)")
+	dontVerifyCertPrt = flag.Bool("insecure", false, "Don't verify the certificate when using HTTPs")
 	throttlePtr = flag.Bool("throttle", false, "Throttle request speed. (random for a max of 10sec)")
+	
+	
 	flag.Parse()
 
 	if !validateFlags() {
@@ -171,6 +189,7 @@ func main() {
 	fmt.Printf("End Port:	%d\n", *endPortPtr)
 	fmt.Printf("Workers:	%d\n", *concurrentPtr)
 	fmt.Printf("HTTPS On:	%t\n", *useHTTPSPtr)
+	fmt.Printf("Verify Certs:	%t\n", *dontVerifyCertPrt)
 	fmt.Printf("Throttle:	%t\n", *throttlePtr)
 	fmt.Printf("=========================\n\n")
 
@@ -181,6 +200,22 @@ func main() {
 		current: make(chan int, *concurrentPtr),
 		wg:      sync.WaitGroup{},
 	}
+
+	format, err := template.New("status-bar").
+	Parse("  > Processing range: {{if .Updated}}{{end}}{{.Done}}/{{.Total}}")
+	if err != nil {
+	}
+	bar := barely.NewStatusBar(format)
+	status := &struct {
+		Total   int
+		Done    int64
+		Updated int64
+	}{
+		Total: *endPortPtr - *startPortPtr,
+	}
+	bar.SetStatus(status)
+	bar.Render(os.Stdout)
+
 
 	// Process the ports in the range we got
 	for port := *startPortPtr; port <= *endPortPtr; port++ {
@@ -196,12 +231,15 @@ func main() {
 			}
 
 			tester.testHTTPEgress(p)
+			atomic.AddInt64(&status.Done, 1)
+			atomic.AddInt64(&status.Updated, 1)
+			bar.Render(os.Stdout)
 
 		}(port)
 	}
 
 	// Wait for the work to complete
 	mwg.Wait()
-
+	bar.Clear(os.Stdout)
 	fmt.Printf("Done in %s\n", time.Since(start))
 }
