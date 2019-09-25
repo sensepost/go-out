@@ -131,7 +131,8 @@ func (service *service) testHTTPEgress(port int) {
 		panic(err)
 	}
 	if strings.Contains(string(body), service.match) {
-		fmt.Printf("[!] Egress on port %d            \n", port)
+		fmt.Fprint(os.Stdout, "\x1b[2K")
+		fmt.Printf("[!] Egress on port %d\n", port)
 	}
 }
 
