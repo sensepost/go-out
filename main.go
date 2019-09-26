@@ -28,7 +28,7 @@ import (
 	"github.com/reconquest/barely"
 )
 
-var version = "1.0"
+var version = "1.1"
 
 var (
 	servicePtr           *string
@@ -38,6 +38,8 @@ var (
 	useHTTPSPtr          *bool
 	throttlePtr          *bool
 	ignoreCertificatePtr *bool
+
+	printVersion *bool
 )
 
 type service struct {
@@ -180,9 +182,16 @@ func main() {
 	ignoreCertificatePtr = flag.Bool("insecure", false, "Don't verify the certificate when using HTTPs")
 	throttlePtr = flag.Bool("throttle", false, "Throttle request speed. (random for a max of 10sec)")
 
+	printVersion = flag.Bool("version", false, "Print the version and exit")
+
 	flag.Parse()
 
 	if !validateFlags() {
+		return
+	}
+
+	if *printVersion {
+		fmt.Printf("go-out version %s\n", version)
 		return
 	}
 
