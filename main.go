@@ -36,7 +36,7 @@ var (
 	concurrentPtr *int
 	useHTTPSPtr   *bool
 	throttlePtr   *bool
-	dontVerifyCertPrt *bool
+	ignoreCertificatePtr *bool
 )
 
 type service struct {
@@ -110,14 +110,14 @@ func (service *service) testHTTPEgress(port int) {
 		panic(err)
 	}
 
-	tr := &http.Transport{
-        TLSClientConfig: &tls.Config{InsecureSkipVerify: *dontVerifyCertPrt},
+	transport := &http.Transport{
+        TLSClientConfig: &tls.Config{InsecureSkipVerify: *ignoreCertificatePtr},
     }
 
 	timeout := time.Duration(5 * time.Second)
 	client := http.Client{
 		Timeout: timeout,
-		Transport: tr,
+		Transport: transport,
 	}
 	resp, err := client.Get(url.String())
 	if err != nil {
@@ -149,9 +149,9 @@ func validateFlags() bool {
 		*useHTTPSPtr = false
 	}
 
-	if !*useHTTPSPtr && *dontVerifyCertPrt{
+	if !*useHTTPSPtr && *ignoreCertificatePtr{
 		fmt.Println("HTTPs is disabled, will not verify certificates.")
-		*dontVerifyCertPrt = false
+		*ignoreCertificatePtr = false
 	}
 
 	if !validPort(*startPortPtr) || !validPort(*endPortPtr) {
@@ -174,7 +174,7 @@ func main() {
 	endPortPtr = flag.Int("end", 65535, "The end port to use.")
 	concurrentPtr = flag.Int("w", 5, "Number of concurrent workers to spawn.")
 	useHTTPSPtr = flag.Bool("https", true, "Egress bust using HTTPs (letmeout only)")
-	dontVerifyCertPrt = flag.Bool("insecure", false, "Don't verify the certificate when using HTTPs")
+	ignoreCertificatePtr = flag.Bool("insecure", false, "Don't verify the certificate when using HTTPs")
 	throttlePtr = flag.Bool("throttle", false, "Throttle request speed. (random for a max of 10sec)")
 	
 	
@@ -190,7 +190,7 @@ func main() {
 	fmt.Printf("End Port:	%d\n", *endPortPtr)
 	fmt.Printf("Workers:	%d\n", *concurrentPtr)
 	fmt.Printf("HTTPS On:	%t\n", *useHTTPSPtr)
-	fmt.Printf("Verify Certs:	%t\n", *dontVerifyCertPrt)
+	fmt.Printf("Verify Certs:	%t\n", *ignoreCertificatePtr)
 	fmt.Printf("Throttle:	%t\n", *throttlePtr)
 	fmt.Printf("=========================\n\n")
 
@@ -212,7 +212,7 @@ func main() {
 		Done    int64
 		Updated int64
 	}{
-		Total: *endPortPtr - *startPortPtr,
+		Total: *endPortPtr - *startPortPtr + 1,
 	}
 	bar.SetStatus(status)
 	bar.Render(os.Stdout)
