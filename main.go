@@ -38,6 +38,7 @@ var (
 	useHTTPSPtr          *bool
 	throttlePtr          *bool
 	ignoreCertificatePtr *bool
+	invertPtr            *bool
 
 	printVersion *bool
 )
@@ -119,7 +120,8 @@ func (service *service) testHTTPEgress(port int) {
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
-	timeout := time.Duration(5 * time.Second)
+	//changed this to 10 as it gave better results on the invert
+	timeout := time.Duration(10 * time.Second)
 	client := http.Client{
 		Timeout:   timeout,
 		Transport: transport,
@@ -127,6 +129,10 @@ func (service *service) testHTTPEgress(port int) {
 	resp, err := client.Get(url.String())
 	if err != nil {
 		// fmt.Printf("No connection on port %d\n", port)
+		if *invertPtr{
+			fmt.Fprint(os.Stdout, "\x1b[2K")
+			fmt.Printf("[!] Looks like we have nogress using %s on port %d\n", url.String(), port)
+		}
 		return
 	}
 	defer resp.Body.Close()
@@ -135,10 +141,10 @@ func (service *service) testHTTPEgress(port int) {
 	if err != nil {
 		panic(err)
 	}
-	if strings.Contains(string(body), service.match) {
+	if strings.Contains(string(body), service.match) && !*invertPtr {
 		fmt.Fprint(os.Stdout, "\x1b[2K")
 		fmt.Printf("[!] Looks like we have egress using %s on port %d\n", url.String(), port)
-	}
+	} 
 }
 
 func validateFlags() bool {
@@ -178,9 +184,10 @@ func main() {
 	startPortPtr = flag.Int("start", 1, "The start port to use.")
 	endPortPtr = flag.Int("end", 65535, "The end port to use.")
 	concurrentPtr = flag.Int("w", 5, "Number of concurrent workers to spawn.")
-	useHTTPSPtr = flag.Bool("https", true, "Egress bust using HTTPs (letmeout only)")
-	ignoreCertificatePtr = flag.Bool("insecure", false, "Don't verify the certificate when using HTTPs")
+	useHTTPSPtr = flag.Bool("https", true, "Egress bust using HTTPs. (letmeout only)")
+	ignoreCertificatePtr = flag.Bool("insecure", false, "Don't verify the certificate when using HTTPs.")
 	throttlePtr = flag.Bool("throttle", false, "Throttle request speed. (random for a max of 10sec)")
+	invertPtr = flag.Bool("invert", false, "Invert results of the egress bust.")
 
 	printVersion = flag.Bool("version", false, "Print the version and exit")
 
@@ -202,6 +209,7 @@ func main() {
 	fmt.Printf("Workers:	%d\n", *concurrentPtr)
 	fmt.Printf("HTTPS On:	%t\n", *useHTTPSPtr)
 	fmt.Printf("Ignore Certs:	%t\n", *ignoreCertificatePtr)
+	fmt.Printf("Invert:	%t\n", *invertPtr)
 	fmt.Printf("Throttle:	%t\n", *throttlePtr)
 	fmt.Printf("=========================\n\n")
 
