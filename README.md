@@ -1,12 +1,14 @@
 # ☄️ go-out
 
-A simple, dependency free, Golang egress buster using [@mubix](https://twitter.com/mubix) letmeoutofyour.net and [@bhinfosecurity](https://twitter.com/bhinfosecurity) allports.exposed services.
+A simple, Golang egress buster using [@mubix](https://twitter.com/mubix) letmeoutofyour.net and [@bhinfosecurity](https://twitter.com/bhinfosecurity) allports.exposed services.
 
 ## install
 
 Download the latest release for your platform from the [releases page](https://github.com/sensepost/go-out/releases/latest).
 
 ### building from source
+
+This project makes use of Go modules, and therefore needs Golang 1.12+ to build.
 
 To build `go-out` from source, simply clone this repository and `go build -o go-out main.go`. If you would like to cross compile for other platforms, take a look at the [Makefile](https://github.com/sensepost/go-out/blob/master/Makefile).
 
@@ -17,17 +19,19 @@ CLI flags:
 ```text
 Usage of go-out:
   -end int
-    The end port to use. (default 65535)
+   The end port to use. (default 65535)
   -https
-    Egress bust using HTTPs (letmeout only) (default true)
+   Egress bust using HTTPs (letmeout only) (default true)
+  -insecure
+   Don't verify the certificate when using HTTPs
   -service string
-    Use 'letmeout' or 'allports' for this run. (default "letmeout")
+   Use 'letmeout' or 'allports' for this run. (default "letmeout")
   -start int
-    The start port to use. (default 1)
+   The start port to use. (default 1)
   -throttle
-    Throttle request speed. (random times, max 10sec) (default true)
+   Throttle request speed. (random for a max of 10sec)
   -w int
-    Number of concurrent workers to spawn. (default 5)
+   Number of concurrent workers to spawn. (default 5)
 ```
 
 Sample run:
@@ -35,20 +39,18 @@ Sample run:
 ```text
 $ go-out -start=50 -end=80
 ===== Configuration =====
-Service:  letmeout
-Start Port: 50
-End Port: 80
-Workers:  5
-HTTPS On: true
-Throttle: false
+Service:      letmeout
+Start Port:   50
+End Port:     80
+Workers:      5
+HTTPS On:     true
+Ignore Certs: false
+Throttle:     false
 =========================
 
-[!] Egress on port 50
-[!] Egress on port 54
-[!] Egress on port 51
-[!] Egress on port 53
-[!] Egress on port 80
-Done in 48.542120002s
+[!] Looks like we have egress using https://go-out.letmeoutofyour.net:53 on port 53
+[!] Looks like we have egress using https://go-out.letmeoutofyour.net:80 on port 80
+Done in 9.393870727s
 ```
 
 ## contact
