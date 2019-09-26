@@ -9,20 +9,20 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 	"sync/atomic"
-	"crypto/tls"
 	"text/template"
-	"os"
+	"time"
 
 	"github.com/reconquest/barely"
 )
@@ -30,12 +30,12 @@ import (
 var version = "1.0"
 
 var (
-	servicePtr    *string
-	startPortPtr  *int
-	endPortPtr    *int
-	concurrentPtr *int
-	useHTTPSPtr   *bool
-	throttlePtr   *bool
+	servicePtr           *string
+	startPortPtr         *int
+	endPortPtr           *int
+	concurrentPtr        *int
+	useHTTPSPtr          *bool
+	throttlePtr          *bool
 	ignoreCertificatePtr *bool
 )
 
@@ -111,12 +111,12 @@ func (service *service) testHTTPEgress(port int) {
 	}
 
 	transport := &http.Transport{
-        TLSClientConfig: &tls.Config{InsecureSkipVerify: *ignoreCertificatePtr},
-    }
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: *ignoreCertificatePtr},
+	}
 
 	timeout := time.Duration(5 * time.Second)
 	client := http.Client{
-		Timeout: timeout,
+		Timeout:   timeout,
 		Transport: transport,
 	}
 	resp, err := client.Get(url.String())
@@ -149,7 +149,7 @@ func validateFlags() bool {
 		*useHTTPSPtr = false
 	}
 
-	if !*useHTTPSPtr && *ignoreCertificatePtr{
+	if !*useHTTPSPtr && *ignoreCertificatePtr {
 		fmt.Println("HTTPs is disabled, will not verify certificates.")
 		*ignoreCertificatePtr = false
 	}
@@ -176,8 +176,7 @@ func main() {
 	useHTTPSPtr = flag.Bool("https", true, "Egress bust using HTTPs (letmeout only)")
 	ignoreCertificatePtr = flag.Bool("insecure", false, "Don't verify the certificate when using HTTPs")
 	throttlePtr = flag.Bool("throttle", false, "Throttle request speed. (random for a max of 10sec)")
-	
-	
+
 	flag.Parse()
 
 	if !validateFlags() {
@@ -203,7 +202,7 @@ func main() {
 	}
 
 	format, err := template.New("status-bar").
-	Parse("  > Processing range: {{if .Updated}}{{end}}{{.Done}}/{{.Total}}")
+		Parse("  > Processing range: {{if .Updated}}{{end}}{{.Done}}/{{.Total}}")
 	if err != nil {
 	}
 	bar := barely.NewStatusBar(format)
@@ -216,7 +215,6 @@ func main() {
 	}
 	bar.SetStatus(status)
 	bar.Render(os.Stdout)
-
 
 	// Process the ports in the range we got
 	for port := *startPortPtr; port <= *endPortPtr; port++ {
