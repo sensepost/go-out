@@ -9,34 +9,37 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 	"sync/atomic"
-	"crypto/tls"
 	"text/template"
-	"os"
+	"time"
 
 	"github.com/reconquest/barely"
 )
 
-var version = "1.0"
+var version = "1.1"
 
 var (
-	servicePtr    *string
-	startPortPtr  *int
-	endPortPtr    *int
-	concurrentPtr *int
-	useHTTPSPtr   *bool
-	throttlePtr   *bool
+	servicePtr           *string
+	startPortPtr         *int
+	endPortPtr           *int
+	concurrentPtr        *int
+	useHTTPSPtr          *bool
+	throttlePtr          *bool
 	ignoreCertificatePtr *bool
+
+	printVersion *bool
 )
 
 type service struct {
@@ -110,13 +113,15 @@ func (service *service) testHTTPEgress(port int) {
 		panic(err)
 	}
 
-	transport := &http.Transport{
-        TLSClientConfig: &tls.Config{InsecureSkipVerify: *ignoreCertificatePtr},
-    }
+	transport := &http.Transport{}
+
+	if *ignoreCertificatePtr {
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
 
 	timeout := time.Duration(5 * time.Second)
 	client := http.Client{
-		Timeout: timeout,
+		Timeout:   timeout,
 		Transport: transport,
 	}
 	resp, err := client.Get(url.String())
@@ -132,7 +137,7 @@ func (service *service) testHTTPEgress(port int) {
 	}
 	if strings.Contains(string(body), service.match) {
 		fmt.Fprint(os.Stdout, "\x1b[2K")
-		fmt.Printf("[!] Egress on port %d\n", port)
+		fmt.Printf("[!] Looks like we have egress using %s on port %d\n", url.String(), port)
 	}
 }
 
@@ -149,7 +154,7 @@ func validateFlags() bool {
 		*useHTTPSPtr = false
 	}
 
-	if !*useHTTPSPtr && *ignoreCertificatePtr{
+	if !*useHTTPSPtr && *ignoreCertificatePtr {
 		fmt.Println("HTTPs is disabled, will not verify certificates.")
 		*ignoreCertificatePtr = false
 	}
@@ -176,11 +181,17 @@ func main() {
 	useHTTPSPtr = flag.Bool("https", true, "Egress bust using HTTPs (letmeout only)")
 	ignoreCertificatePtr = flag.Bool("insecure", false, "Don't verify the certificate when using HTTPs")
 	throttlePtr = flag.Bool("throttle", false, "Throttle request speed. (random for a max of 10sec)")
-	
-	
+
+	printVersion = flag.Bool("version", false, "Print the version and exit")
+
 	flag.Parse()
 
 	if !validateFlags() {
+		return
+	}
+
+	if *printVersion {
+		fmt.Printf("go-out version %s\n", version)
 		return
 	}
 
@@ -190,7 +201,7 @@ func main() {
 	fmt.Printf("End Port:	%d\n", *endPortPtr)
 	fmt.Printf("Workers:	%d\n", *concurrentPtr)
 	fmt.Printf("HTTPS On:	%t\n", *useHTTPSPtr)
-	fmt.Printf("Verify Certs:	%t\n", *ignoreCertificatePtr)
+	fmt.Printf("Ignore Certs:	%t\n", *ignoreCertificatePtr)
 	fmt.Printf("Throttle:	%t\n", *throttlePtr)
 	fmt.Printf("=========================\n\n")
 
@@ -203,8 +214,9 @@ func main() {
 	}
 
 	format, err := template.New("status-bar").
-	Parse("  > Processing range: {{if .Updated}}{{end}}{{.Done}}/{{.Total}}")
+		Parse("  > Processing range: {{if .Updated}}{{end}}{{.Done}}/{{.Total}}")
 	if err != nil {
+		log.Fatalf("Unable to parse progress bar")
 	}
 	bar := barely.NewStatusBar(format)
 	status := &struct {
@@ -216,7 +228,6 @@ func main() {
 	}
 	bar.SetStatus(status)
 	bar.Render(os.Stdout)
-
 
 	// Process the ports in the range we got
 	for port := *startPortPtr; port <= *endPortPtr; port++ {
