@@ -13,6 +13,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -204,6 +205,7 @@ func main() {
 	format, err := template.New("status-bar").
 		Parse("  > Processing range: {{if .Updated}}{{end}}{{.Done}}/{{.Total}}")
 	if err != nil {
+		log.Fatalf("Unable to parse progress bar")
 	}
 	bar := barely.NewStatusBar(format)
 	status := &struct {
