@@ -111,8 +111,10 @@ func (service *service) testHTTPEgress(port int) {
 		panic(err)
 	}
 
-	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: *ignoreCertificatePtr},
+	transport := &http.Transport{}
+
+	if *ignoreCertificatePtr {
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
 	timeout := time.Duration(5 * time.Second)
@@ -190,7 +192,7 @@ func main() {
 	fmt.Printf("End Port:	%d\n", *endPortPtr)
 	fmt.Printf("Workers:	%d\n", *concurrentPtr)
 	fmt.Printf("HTTPS On:	%t\n", *useHTTPSPtr)
-	fmt.Printf("Verify Certs:	%t\n", *ignoreCertificatePtr)
+	fmt.Printf("Ignore Certs:	%t\n", *ignoreCertificatePtr)
 	fmt.Printf("Throttle:	%t\n", *throttlePtr)
 	fmt.Printf("=========================\n\n")
 
