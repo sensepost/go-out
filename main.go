@@ -39,6 +39,7 @@ var (
 	throttlePtr          *bool
 	ignoreCertificatePtr *bool
 	invertPtr            *bool
+	timeoutPtr           *int
 
 	printVersion *bool
 )
@@ -120,20 +121,25 @@ func (service *service) testHTTPEgress(port int) {
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
-	//changed this to 10 as it gave better results on the invert
-	timeout := time.Duration(10 * time.Second)
+	timeout := time.Duration(5 * time.Second)
+	if *timeoutPtr != 0{
+		timeout = time.Duration(*timeoutPtr) * time.Second
+	}
+	
 	client := http.Client{
 		Timeout:   timeout,
 		Transport: transport,
 	}
 	resp, err := client.Get(url.String())
 	if err != nil {
-		// fmt.Printf("No connection on port %d\n", port)
 		if *invertPtr{
-			fmt.Fprint(os.Stdout, "\x1b[2K")
-			fmt.Printf("[!] Looks like we have nogress using %s on port %d\n", url.String(), port)
+			_, err := client.Get(url.String())
+			if err != nil {			
+				fmt.Fprint(os.Stdout, "\x1b[2K")
+				fmt.Printf("[!] Looks like we have no egress using %s on port %d\n", url.String(), port)
+			}
+			return
 		}
-		return
 	}
 	defer resp.Body.Close()
 
@@ -188,6 +194,7 @@ func main() {
 	ignoreCertificatePtr = flag.Bool("insecure", false, "Don't verify the certificate when using HTTPs.")
 	throttlePtr = flag.Bool("throttle", false, "Throttle request speed. (random for a max of 10sec)")
 	invertPtr = flag.Bool("invert", false, "Invert results of the egress bust.")
+	timeoutPtr = flag.Int("timeout", 0, "Timeout in seconds.")
 
 	printVersion = flag.Bool("version", false, "Print the version and exit")
 
@@ -209,7 +216,8 @@ func main() {
 	fmt.Printf("Workers:	%d\n", *concurrentPtr)
 	fmt.Printf("HTTPS On:	%t\n", *useHTTPSPtr)
 	fmt.Printf("Ignore Certs:	%t\n", *ignoreCertificatePtr)
-	fmt.Printf("Invert:	%t\n", *invertPtr)
+	fmt.Printf("Invert:		%t\n", *invertPtr)
+	fmt.Printf("Timeout:	%d\n", *timeoutPtr)
 	fmt.Printf("Throttle:	%t\n", *throttlePtr)
 	fmt.Printf("=========================\n\n")
 
