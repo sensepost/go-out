@@ -136,6 +136,8 @@ func (service *service) testHTTPEgress(port int) {
 			}
 			return
 		}
+
+		return // if the first one errored already, don't continue
 	}
 	defer resp.Body.Close()
 
