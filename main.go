@@ -121,18 +121,15 @@ func (service *service) testHTTPEgress(port int) {
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
-	timeout := time.Duration(5 * time.Second)
-	if *timeoutPtr != 0{
-		timeout = time.Duration(*timeoutPtr) * time.Second
-	}
+	timeout := time.Duration(*timeoutPtr) * time.Second
 	
-	client := http.Client{
+	client := http.Client {
 		Timeout:   timeout,
 		Transport: transport,
 	}
 	resp, err := client.Get(url.String())
 	if err != nil {
-		if *invertPtr{
+		if *invertPtr {
 			_, err := client.Get(url.String())
 			if err != nil {			
 				fmt.Fprint(os.Stdout, "\x1b[2K")
@@ -194,7 +191,7 @@ func main() {
 	ignoreCertificatePtr = flag.Bool("insecure", false, "Don't verify the certificate when using HTTPs.")
 	throttlePtr = flag.Bool("throttle", false, "Throttle request speed. (random for a max of 10sec)")
 	invertPtr = flag.Bool("invert", false, "Invert results of the egress bust.")
-	timeoutPtr = flag.Int("timeout", 0, "Timeout in seconds.")
+	timeoutPtr = flag.Int("timeout", 5, "Timeout in seconds.")
 
 	printVersion = flag.Bool("version", false, "Print the version and exit")
 
