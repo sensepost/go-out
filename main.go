@@ -28,7 +28,7 @@ import (
 	"github.com/reconquest/barely"
 )
 
-var version = "1.1"
+var version = "1.2"
 
 var (
 	servicePtr           *string
