@@ -1,8 +1,8 @@
 // go-out
 //
 //	egress busting using:
-//		letmeoutofyour.net by @mubix
-//		allports.exposed by @bhinfosecurity
+//		letmeoutofyour.net 	by @mubix
+//		allports.exposed 	by @bhinfosecurity
 //
 //	2018 @leonjza
 
@@ -122,8 +122,8 @@ func (service *service) testHTTPEgress(port int) {
 	}
 
 	timeout := time.Duration(*timeoutPtr) * time.Second
-	
-	client := http.Client {
+
+	client := http.Client{
 		Timeout:   timeout,
 		Transport: transport,
 	}
@@ -131,8 +131,7 @@ func (service *service) testHTTPEgress(port int) {
 	if err != nil {
 		if *invertPtr {
 			_, err := client.Get(url.String())
-			if err != nil {			
-				fmt.Fprint(os.Stdout, "\x1b[2K")
+			if err != nil {
 				fmt.Printf("[!] Looks like we have no egress using %s on port %d\n", url.String(), port)
 			}
 			return
@@ -145,9 +144,8 @@ func (service *service) testHTTPEgress(port int) {
 		panic(err)
 	}
 	if strings.Contains(string(body), service.match) && !*invertPtr {
-		fmt.Fprint(os.Stdout, "\x1b[2K")
 		fmt.Printf("[!] Looks like we have egress using %s on port %d\n", url.String(), port)
-	} 
+	}
 }
 
 func validateFlags() bool {
