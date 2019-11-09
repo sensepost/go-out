@@ -15,6 +15,8 @@ import (
 	"io/ioutil"
 	"log"
 	"math/rand"
+	"net"
+	"bufio"
 	"net/http"
 	"net/url"
 	"os"
@@ -52,6 +54,7 @@ type service struct {
 var services = map[string]service{
 	"letmeout": service{url: "go-out.letmeoutofyour.net", match: "w00tw00t"},
 	"allports": service{url: "allports.exposed", match: "<p>Open Port</p>"},
+	"ipv4cat": service{url: "ipv4.cat", match: ""},
 }
 
 // maxedWaitGroup is a type to control the maximum
@@ -132,7 +135,7 @@ func (service *service) testHTTPEgress(port int) {
 		if *invertPtr {
 			_, err := client.Get(url.String())
 			if err != nil {
-				fmt.Printf("[!] Looks like we have no egress using %s on port %d\n", url.String(), port)
+				fmt.Printf("[!] Looks like we have no egress using %s on port %d.\n", url.String(), port)
 			}
 			return
 		}
@@ -146,19 +149,52 @@ func (service *service) testHTTPEgress(port int) {
 		panic(err)
 	}
 	if strings.Contains(string(body), service.match) && !*invertPtr {
-		fmt.Printf("[!] Looks like we have egress using %s on port %d\n", url.String(), port)
+		fmt.Printf("[!] Looks like we have egress using %s on port %d.\n", url.String(), port)
 	}
+}
+
+// testTCPEgress tests if a specific port is allowed to connect
+// to the internet via a raw TCP connection by and keeps note of the 
+// breakout IP address
+func (service *service) testTCPEgress(port int) {
+
+	timeout := time.Duration(*timeoutPtr) * time.Second
+
+	connection := net.Dialer{Timeout: timeout}
+	
+	conn, err := connection.Dial("tcp", service.url + ":" + strconv.Itoa(port))
+	
+	if err != nil {
+		if *invertPtr {
+			_, err := connection.Dial("tcp", service.url + ":" + strconv.Itoa(port))
+			if err != nil {
+				fmt.Printf("[!] Looks like we have no TCP egress using %s on port %d.\n", service.url, port)
+			}
+			return
+		}
+
+		return // if the first one errored already, don't continue
+	}
+
+	message, _ := bufio.NewReader(conn).ReadString('\n')
+
+	addr := net.ParseIP(strings.TrimSuffix(message, "\n"))
+
+	if addr.To4() != nil && addr.To16() != nil  && !*invertPtr {
+		fmt.Printf("[!] Looks like we have TCP egress using %s on port %d and it broke out from %s\n", service.url, port, strings.TrimSuffix(message, "\n"))
+	}
+
 }
 
 func validateFlags() bool {
 
 	// Flag Validation
 	if !validService(servicePtr) {
-		fmt.Printf("%s is an invalid service. Please choose 'letmeout' or 'allports'\n", *servicePtr)
+		fmt.Printf("%s is an invalid service. Please choose 'letmeout', 'allports' or 'ipv4cat'.\n", *servicePtr)
 		return false
 	}
 
-	if *useHTTPSPtr && *servicePtr != "letmeout" {
+	if *useHTTPSPtr && *servicePtr != "letmeout" && *servicePtr != "ipv4cat" {
 		fmt.Println("Only the 'letmeout' service supports HTTPS, disabling HTTPS checking.")
 		*useHTTPSPtr = false
 	}
@@ -183,7 +219,7 @@ func validateFlags() bool {
 
 func main() {
 
-	servicePtr = flag.String("service", "letmeout", "Use 'letmeout' or 'allports' for this run.")
+	servicePtr = flag.String("service", "letmeout", "Use 'letmeout', 'allports' or 'ipv4cat' for this run.")
 	startPortPtr = flag.Int("start", 1, "The start port to use.")
 	endPortPtr = flag.Int("end", 65535, "The end port to use.")
 	concurrentPtr = flag.Int("w", 5, "Number of concurrent workers to spawn.")
@@ -255,7 +291,12 @@ func main() {
 				time.Sleep(time.Second * time.Duration(rand.Intn(10)))
 			}
 
-			tester.testHTTPEgress(p)
+			if *servicePtr == "ipv4cat" {
+				tester.testTCPEgress(p)
+			} else {
+				tester.testHTTPEgress(p)
+			}
+			
 			atomic.AddInt64(&status.Done, 1)
 			atomic.AddInt64(&status.Updated, 1)
 			bar.Render(os.Stdout)
