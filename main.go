@@ -40,6 +40,7 @@ var (
 	ignoreCertificatePtr *bool
 	invertPtr            *bool
 	timeoutPtr           *int
+	randomisePortsPtr    *bool
 
 	printVersion *bool
 )
@@ -50,8 +51,8 @@ type service struct {
 }
 
 var services = map[string]service{
-	"letmeout": service{url: "go-out.letmeoutofyour.net", match: "w00tw00t"},
-	"allports": service{url: "allports.exposed", match: "<p>Open Port</p>"},
+	"letmeout": {url: "go-out.letmeoutofyour.net", match: "w00tw00t"},
+	"allports": {url: "allports.exposed", match: "<p>Open Port</p>"},
 }
 
 // maxedWaitGroup is a type to control the maximum
@@ -97,6 +98,29 @@ func validPort(p int) bool {
 	}
 
 	return false
+}
+
+// makes a number range slice
+func makePortRange(min, max int) []int {
+	a := make([]int, max-min+1)
+	for i := range a {
+		a[i] = min + i
+	}
+
+	return a
+}
+
+// shufflePorts randomizes port order
+func shufflePorts(ports []int) []int {
+	r := rand.New(rand.NewSource(time.Now().Unix()))
+	ret := make([]int, len(ports))
+	perm := r.Perm(len(ports))
+
+	for i, ix := range perm {
+		ret[i] = ports[ix]
+	}
+
+	return ret
 }
 
 // testHTTPEgress tests if a specific port is allowed to connect
@@ -192,6 +216,7 @@ func main() {
 	throttlePtr = flag.Bool("throttle", false, "Throttle request speed. (random for a max of 10sec)")
 	invertPtr = flag.Bool("invert", false, "Invert results of the egress bust.")
 	timeoutPtr = flag.Int("timeout", 5, "Timeout in seconds.")
+	randomisePortsPtr = flag.Bool("r", false, "Randomise port scanning order")
 
 	printVersion = flag.Bool("version", false, "Print the version and exit")
 
@@ -216,6 +241,7 @@ func main() {
 	fmt.Printf("Invert:		%t\n", *invertPtr)
 	fmt.Printf("Timeout:	%d\n", *timeoutPtr)
 	fmt.Printf("Throttle:	%t\n", *throttlePtr)
+	fmt.Printf("Random Ports:	%t\n", *randomisePortsPtr)
 	fmt.Printf("=========================\n\n")
 
 	tester := services[*servicePtr]
@@ -242,8 +268,13 @@ func main() {
 	bar.SetStatus(status)
 	bar.Render(os.Stdout)
 
-	// Process the ports in the range we got
-	for port := *startPortPtr; port <= *endPortPtr; port++ {
+	portRange := makePortRange(*startPortPtr, *endPortPtr)
+
+	if *randomisePortsPtr {
+		portRange = shufflePorts(portRange)
+	}
+
+	for _, port := range portRange {
 
 		mwg.Add()
 
