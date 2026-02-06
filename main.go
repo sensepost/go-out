@@ -12,7 +12,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -125,7 +125,7 @@ func shufflePorts(ports []int) []int {
 
 // testHTTPEgress tests if a specific port is allowed to connect
 // to the internet via http by matching the specific services' matcher
-func (service *service) testHTTPEgress(port int) {
+func (service *service) testHTTPEgress(port int, debug bool) {
 
 	var scheme string
 	if *useHTTPSPtr {
@@ -139,19 +139,17 @@ func (service *service) testHTTPEgress(port int) {
 		panic(err)
 	}
 
-	transport := &http.Transport{}
-
-	if *ignoreCertificatePtr {
-		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	}
-
 	timeout := time.Duration(*timeoutPtr) * time.Second
 
 	client := http.Client{
 		Timeout:   timeout,
-		Transport: transport,
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: *ignoreCertificatePtr}},
 	}
 	resp, err := client.Get(url.String())
+	if err != nil && debug {
+		fmt.Printf("[!] Port %d is closed or filtered (error: %s)\n", port, err.Error())
+	}
+
 	if err != nil {
 		if *invertPtr {
 			_, err := client.Get(url.String())
@@ -165,10 +163,13 @@ func (service *service) testHTTPEgress(port int) {
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		panic(err)
 	}
+
+	fmt.Printf("response: %s\n", string(body))
+
 	if strings.Contains(string(body), service.match) && !*invertPtr {
 		fmt.Printf("[!] Looks like we have egress using %s on port %d\n", url.String(), port)
 	}
@@ -217,6 +218,7 @@ func main() {
 	invertPtr = flag.Bool("invert", false, "Invert results of the egress bust.")
 	timeoutPtr = flag.Int("timeout", 5, "Timeout in seconds.")
 	randomisePortsPtr = flag.Bool("r", false, "Randomise port scanning order")
+	debugPtr := flag.Bool("debug", false, "Print debug information")
 
 	printVersion = flag.Bool("version", false, "Print the version and exit")
 
@@ -286,7 +288,7 @@ func main() {
 				time.Sleep(time.Second * time.Duration(rand.Intn(10)))
 			}
 
-			tester.testHTTPEgress(p)
+			tester.testHTTPEgress(p, *debugPtr)
 			atomic.AddInt64(&status.Done, 1)
 			atomic.AddInt64(&status.Updated, 1)
 			bar.Render(os.Stdout)
